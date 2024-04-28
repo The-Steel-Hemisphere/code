@@ -18,13 +18,8 @@ from talker import Talker
 import serial
 
 # establish a ctrl+c handler
-import signal
 import sys
 
-def signal_handler(sig, frame):
-    print('You pressed Ctrl+C!')
-    exitProgram()
-    sys.exit(0)
 
 t = serial.Serial("/dev/ttyACM0", 115200, timeout=10)
 #t.write(b">>>\r\f")
@@ -61,13 +56,6 @@ image = sl.Mat()
 depth = sl.Mat()
 point_cloud = sl.Mat()
 
-
-# These parameters are for blue
-#orange_lower_left = (110, 50, 50)
-#orange_upper_left = (170, 255, 255)
-
-
-
 orange_lower_left = (36, 100, 100)
 orange_upper_left = (70, 255, 255)
 
@@ -93,8 +81,6 @@ while True:
         left_mask = cv2.inRange(left_hsv, orange_lower_left, orange_upper_left)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (10, 10))
         left_mask = cv2.morphologyEx(left_mask, cv2.MORPH_OPEN, kernel)
-        if DEBUG:
-            left_orange_pixels = cv2.bitwise_and(image.get_data(), image.get_data(), mask=left_mask)
         
         left_center = cv2.findNonZero(left_mask)
         if left_center is  None:
@@ -106,16 +92,8 @@ while True:
 
         left_center = left_center.mean(axis=0).astype(int)
 
-        if DEBUG and left_center is not None:
-            # get the center of each orange area, with a radius of 10 pixels
-            cv2.circle(left_orange_pixels, tuple(left_center[0]), 10, (0, 255, 0), -1)
-
         # get the bonding box of the continous area of orange around the 'left_center'
         get_bounding_box = cv2.boundingRect(left_mask)
-        if DEBUG and get_bounding_box is not None:
-            # draw the bounding box
-            cv2.rectangle(left_orange_pixels, get_bounding_box, (0, 255, 0), 2)
-
         
 
 
@@ -127,100 +105,32 @@ while True:
             xm = (point_cloud_value[0]/25.4)
             ym = -(point_cloud_value[1]/25.4)
             zm = (point_cloud_value[2]/25.4)
-            #print(f"Distance to Camera at {{{x};{y}}}: xm, ym, zm = {xm}, {ym}, {zm}")
             started = True
-            font = cv2.FONT_HERSHEY_SIMPLEX
-
-            # cv2.putText(left_orange_pixels, f"xm, ym, zm = {xm}, {ym}, {zm}", (10, 50), font, 1, (255, 255, 255), 2, cv2.LINE_AA)
 
             pos_data.append([time.time(), xm, ym, zm, i])
-
-        #else : 
-            #print(f"The distance can not be computed at {{{x};{y}}}")
-        
-        # save the image to the vidoe
-        # add in text the output of the distance
-        
-
-
-        
-        if DEBUG:
-            cv2.imshow("ZED", left_orange_pixels)
-        key = cv2.waitKey(1)
-        if key == ord('q'):
-            break
         
         if len(pos_data) >= 15:
             print("Data collected")
             break
-
-
     else:
         print("Failed to read frame from the camera")
         break
 
-# save the data to a csv file
-# import csv
-# with open(f'position_data{time.time()}.csv', mode='w') as file:
-#     writer = csv.writer(file)
-#     writer.writerow(['time', 'x', 'y', 'z'])
-#     for row in pos_data:
-#         writer.writerow(row)
-
-# # save the file
-# print(f"Data saved to position_data.csv")
-
-
-# end = time.time()
-# print("Frame rate: {0}".format(i / (end - start)))
 end = time.time()
 # Close the camera
 zed.close()
 
-
-# def exitProgram():
-
-#     # save all the images to a folder
-#     import os
-#     os.makedirs('video', exist_ok=True)
-#     for i, img in enumerate(video):
-#         cv2.imwrite(f'video/{i}.png', img)
-
-#     print(f"Video saved to video folder")   
-
-#     cv2.destroyAllWindows()
-
-
-# # make a matplot lib 3d plot GIF of the data
-# import matplotlib.pyplot as plt
-
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-
-#import matplotlib.animation as animation
 new_start = time.time()
-frame_time = [x[0] for x in pos_data]
 
-x = [x[1] for x in pos_data]
-y = [x[2] for x in pos_data]
-z = [x[3] for x in pos_data]
-i = [x[4] for x in pos_data]
-# ax.set_xlabel('X')
-# ax.set_ylabel('Z')
-# ax.set_zlabel('Y')
+pos_data = np.asarray(pos_data)
 
-# def animate(i):
-#     ax.scatter(x[0:i], z[0:i], y[0:i])
+frame_time = pos_data[:,0]
+x = pos_data[:,1]
+y = pos_data[:,2]
+z = pos_data[:,3]
+i = pos_data[:,4]
 
-# ani = animation.FuncAnimation(fig, animate, frames=len(x), interval=100)
-
-
-#plt.show()
-
-
-# exitProgram()
-
-projectile_x = np.asarray(x)
+projectile_x = x
 framerate = len(projectile_x)/(frame_time[-1]-frame_time[0])
 #print(projectile_x)
 projectile_x = projectile_x[10:]
