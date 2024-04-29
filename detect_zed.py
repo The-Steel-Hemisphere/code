@@ -110,7 +110,9 @@ while True:
             pos_data.append([time.time(), xm, ym, zm, i])
         
         if len(pos_data) >= 15:
+            time1 = time.time()
             print("Data collected")
+            
             break
     else:
         print("Failed to read frame from the camera")
@@ -197,7 +199,7 @@ measurements = []
 for values in zip(projectile_x,projectile_y,projectile_z):
     measurements.append(values)
 
-time1 = time.time()
+
 (smoothed_state_means, smoothed_state_covariances) = kf1.smooth(measurements)
 next_mean = smoothed_state_means[-1]
 next_covar = smoothed_state_covariances[-1]
@@ -207,21 +209,23 @@ predicated_state_covariances = []
 pitch = []
 yaw = []
 launcher_offset = (0.00635,-0.1778,0.1524)
-predict_count  = 1
+predict_count  = -1
 degree_speed = 191 # degrees per second
 yaw_distance = []
 time_to_prediction = []
 time_advantage = []
 time_per_frame = 1/framerate
 yaw_time  = []
-time_to_predict = time.time() - time1
+time_diff = []
 advantage_count = 0
-print(time_to_predict)
+time_to_predict = time.time() - time1
 while True:
     next_mean, next_covar = kf1.filter_update(next_mean,next_covar)
     predicted_state_means.append(next_mean)
     predicated_state_covariances.append(next_covar)
     predict_count = predict_count + 1
+    #t
+    time_diff.append(predict_count * time_per_frame - time_to_predict)
     time_to_prediction.append(predict_count*time_per_frame + time_to_predict)
     
     launcher_distance = tuple(np.subtract(next_mean[0:3],launcher_offset))
@@ -231,10 +235,12 @@ while True:
     yaw.append(temp_yaw)
     yaw_distance.append(abs(90-math.degrees(np.arctan(launcher_distance[2]/launcher_distance[0]))))
     yaw_time.append(abs(yaw[-1]/degree_speed))
-    time_advantage.append(time_to_prediction[-1]- yaw_time[-1] -0.01)
+    #if predict_count >= 13:
+    #    break
+    time_advantage.append(time_to_prediction[-1]- yaw_time[-1]-0.05)
     if time_advantage[-1] > 0:
         advantage_count = advantage_count + 1
-        if advantage_count >= 8:
+        if advantage_count >= 7:
             break
     
     pitch.append(abs(math.degrees(np.arctan(launcher_distance[1]/(np.sqrt(np.power(launcher_distance[2],2) + np.power(launcher_distance[0],2)))))))
@@ -244,8 +250,11 @@ predicted_state_means = np.array(predicted_state_means)
 print(yaw)
 print(pitch)
 #print("Time for kalman filter is " + str(time2-time1) + " seconds")
-if abs_pitch[-1] < 90 and abs_pitch[-1] >5 and yaw[-1]>-59.5 and yaw[-1] < 60.5:
-    move_string = f"move({abs_pitch[-1]-5},{yaw[-1]-0.5})\r\f"
+if abs_pitch[-1] < 90 and abs_pitch[-1] >0 and yaw[-1]>-58.5 and yaw[-1] < 61.5:
+    if abs_pitch[-1] < 4:
+        move_string = f"move({abs_pitch[-1]},{yaw[-1]-1.5})\r\f"
+    else:
+        move_string = f"move({abs_pitch[-1]-4},{yaw[-1]-1.5})\r\f"
     launch_delay = 0.01
     
     t.write(move_string.encode('utf-8'))
